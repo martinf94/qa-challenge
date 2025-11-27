@@ -82,6 +82,7 @@ docker-compose down -v
 
 📂 Project Structure
 
+```text
 qa-challenge/
 ├── docker-compose.yml        # Service orchestration and networking config
 ├── README.md                 # Project documentation
@@ -96,4 +97,3 @@ qa-challenge/
     │   └── PostPage.ts       # Logic for Post verification
     └── e2e/                  # End-to-End Test Specs
         └── blog.spec.ts      # Main test suite using the Page Objects
-
