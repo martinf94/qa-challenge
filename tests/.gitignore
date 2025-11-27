@@ -1,0 +1,25 @@
+Dependencies
+
+node_modules/
+npm-debug.log
+
+Playwright Test Artifacts (Generated during runs)
+
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+Operating System Files
+
+.DS_Store
+Thumbs.db
+
+VS Code / IDE Settings
+
+.vscode/
+.idea/
+
+Environment Variables (Safety)
+
+.env

@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # 1. The Memory (Database)
+  db:
+    image: mysql:8.4
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: somewordpress
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - db_data:/var/lib/mysql
+
+  # 2. The Application (WordPress)
+  wordpress:
+    depends_on:
+      db:
+        condition: service_healthy
+    image: wordpress:latest
+    ports:
+      - "8080:80"
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - wp_data:/var/www/html
+
+  # 3. The Builder (Data Seeder)
+  seeder:
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    image: wordpress:cli
+    user: root 
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/seed_success"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+    command: >
+      /bin/sh -c "
+      echo 'Waiting for WordPress files to appear...' &&
+      count=0;
+      until [ -f /var/www/html/wp-config.php ] || [ \$count -eq 30 ]; do 
+        echo 'Waiting for wp-config.php...'; 
+        sleep 2; 
+        count=\$((count+1));
+      done &&
+      
+      if [ ! -f /var/www/html/wp-config.php ]; then
+        echo 'TIMEOUT: wp-config.php was not found.';
+        exit 1;
+      fi &&
+
+      echo 'Installing WordPress...' &&
+      wp core install --path=/var/www/html --url=http://wordpress --title='QA Blog' --admin_user=admin --admin_password=password --admin_email=test@test.com --skip-email --allow-root &&
+      
+      echo 'Creating the Challenge Post...' &&
+      wp post create --path=/var/www/html --post_type=post --post_title='QA Automation Challenge' --post_content='Dockerized testing is the future.' --post_status=publish --allow-root &&
+      
+      echo 'Seeding Complete!' &&
+      touch /tmp/seed_success &&
+      tail -f /dev/null"
+    volumes:
+      - wp_data:/var/www/html
+
+  # 4. The Inspector (Test Runner)
+  playwright:
+    build: ./tests
+    depends_on:
+      seeder:
+        condition: service_healthy
+    environment:
+      - BASE_URL=http://wordpress
+    ipc: host
+
+volumes:
+  db_data:
+  wp_data:
